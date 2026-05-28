@@ -7,4 +7,5 @@ __pycache__/
 .env
 .env.local
 workspace_checkout/
+demo_data/live_cache/
 .venv/

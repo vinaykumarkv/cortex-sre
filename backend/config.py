@@ -38,3 +38,11 @@ def production_cache_ttl() -> int:
 def sentry_fetch_events() -> bool:
     """Extra per-issue Sentry API call for stack frames (slow)."""
     return os.getenv("SENTRY_FETCH_EVENTS", "false").lower() in ("1", "true", "yes")
+
+
+def use_coral_cli() -> bool:
+    return os.getenv("CORAL_USE_CLI", "true").lower() in ("1", "true", "yes")
+
+
+def github_pr_enabled() -> bool:
+    return os.getenv("GITHUB_PR_ENABLED", "true").lower() in ("1", "true", "yes")

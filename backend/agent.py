@@ -97,15 +97,34 @@ class CortexSREAgent:
         self.log_thought("VERIFYING", f"Unit tests successfully passed on Attempt #{healing_result['attempts']}!")
         self.log_thought("ACTION", "Drafting automated fix summary and committing changes...")
         
-        # Create a mock GitHub Pull Request
-        pr_number = 104
-        self.log_thought("ACTION", f"Successfully opened GitHub Pull Request #{pr_number}: 'fix: resolve ZeroDivisionError in rating average calculation'")
-        
-        # Send automated Slack alert
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        pr_info = None
+        try:
+            from integrations.github_pr import create_healing_pull_request
+            pr_info = create_healing_pull_request(project_root, incident, healing_result)
+        except Exception as e:
+            logger.warning("GitHub PR flow failed: %s", e)
+
+        pr_number = pr_info.get("pr_number") if pr_info else None
+        pr_url = pr_info.get("html_url") if pr_info else None
+
+        if pr_number and pr_url:
+            self.log_thought(
+                "ACTION",
+                f"Opened GitHub Pull Request #{pr_number}: {pr_url}",
+            )
+        else:
+            self.log_thought(
+                "ACTION",
+                "GitHub PR skipped (enable GITHUB_PR_ENABLED, push access, and contents:write on token).",
+            )
+
         slack_alert = (
             f"✅ [CortexSRE Autopilot] OUTAGE RESOLVED: Incident {incident['issue_id']} "
-            f"(ZeroDivisionError) in app.py has been healed. Automated test suite passed successfully. "
-            f"Opened Pull Request #{pr_number} with code patches. Live Dashboard: http://localhost:8000"
+            f"({incident.get('error_type', 'Error')}) in {incident.get('file', 'app.py')} healed. "
+            f"Tests passed."
+            + (f" PR #{pr_number}: {pr_url}" if pr_number else "")
+            + " Dashboard: http://localhost:8000"
         )
         if self.connector.post_slack_alert(slack_alert):
             self.log_thought("ACTION", "Sent resolution report to Slack incident channel.")
@@ -149,6 +168,7 @@ class CortexSREAgent:
             "incident": incident,
             "healing_details": healing_result,
             "pr_number": pr_number,
+            "pr_url": pr_url,
             "duration_sec": duration,
             "thoughts": self.thought_stream
         }

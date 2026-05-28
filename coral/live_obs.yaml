@@ -1,16 +1,14 @@
-name: mock_obs
+name: live_obs
 version: 0.1.0
 dsl_version: 3
 backend: file
 test_queries:
-  - SELECT * FROM mock_obs.sentry_issues LIMIT 1
-  - SELECT * FROM mock_obs.github_commits LIMIT 1
-  - SELECT * FROM mock_obs.slack_history LIMIT 1
+  - SELECT * FROM live_obs.sentry_issues LIMIT 1
 tables:
   - name: sentry_issues
     format: jsonl
     source:
-      location: file:///D:/practice%20projects/cortex-sre/demo_data/
+      location: file:///D:/practice%20projects/cortex-sre/demo_data/live_cache/
       glob: "sentry_issues.jsonl"
     columns:
       - {name: issue_id, type: Utf8}
@@ -23,7 +21,7 @@ tables:
   - name: github_commits
     format: jsonl
     source:
-      location: file:///D:/practice%20projects/cortex-sre/demo_data/
+      location: file:///D:/practice%20projects/cortex-sre/demo_data/live_cache/
       glob: "github_commits.jsonl"
     columns:
       - {name: commit_sha, type: Utf8}
@@ -34,7 +32,7 @@ tables:
   - name: slack_history
     format: jsonl
     source:
-      location: file:///D:/practice%20projects/cortex-sre/demo_data/
+      location: file:///D:/practice%20projects/cortex-sre/demo_data/live_cache/
       glob: "slack_history.jsonl"
     columns:
       - {name: channel, type: Utf8}

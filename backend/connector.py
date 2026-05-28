@@ -1,10 +1,9 @@
 # connector.py - Production & Demo API Connector
 import os
 import json
-import subprocess
 import logging
 
-from config import is_production
+from config import is_production, use_coral_cli
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -13,9 +12,7 @@ logger = logging.getLogger(__name__)
 class DataConnector:
     """
     DataConnector acts as the data retrieval layer for CortexSRE.
-    It supports:
-      - 'production' mode: Fetches real, live data from Sentry, GitHub, and Slack.
-      - 'demo' mode: Uses Coral's unified SQL interface or a local JSONL fallback.
+    Query order: Coral CLI (SQL joins) -> REST APIs (production) -> JSONL fallback (demo).
     """
     def __init__(self, mode=None):
         if mode is None:
@@ -28,33 +25,26 @@ class DataConnector:
         logger.info(f"DataConnector initialized in '{self.mode}' mode.")
 
     def run_coral_query(self, sql_query):
-        """
-        Executes a SQL query against the Coral CLI, live APIs (production), or JSONL fallback.
-        """
+        """Execute SQL via Coral CLI, production REST, or demo JSONL fallback."""
+        if use_coral_cli():
+            try:
+                from integrations.coral_runner import run_coral_sql
+                return run_coral_sql(sql_query, self.project_root)
+            except Exception as e:
+                logger.warning("Coral CLI query failed, using fallback: %s", e)
+
         if self.mode == "production":
             return self._production_query(sql_query)
 
-        try:
-            logger.info(f"Running Coral query: {sql_query}")
-            result = subprocess.run(
-                ["coral", "sql", "--format", "json", sql_query],
-                capture_output=True,
-                text=True,
-                shell=True,
-                check=True,
-            )
-            return json.loads(result.stdout)
-        except Exception as e:
-            logger.warning(f"Coral CLI failed ({e}). Using local mock database...")
-            return self._fallback_jsonl_query(sql_query)
+        return self._fallback_jsonl_query(sql_query)
 
     def _production_query(self, sql_query):
-        """Live Sentry/GitHub/Slack; cortex_system metrics stay in local JSONL."""
+        """Live Sentry/GitHub/Slack via REST; cortex_system from local JSONL."""
         query_upper = sql_query.upper()
         runs_data = self._read_jsonl("cortex_runs.jsonl")
         healed_data = self._read_jsonl("cortex_healed.jsonl")
 
-        if "CORTEX_SYSTEM" in query_upper or "RUNS" in query_upper and "MOCK_OBS" not in query_upper:
+        if "CORTEX_SYSTEM" in query_upper:
             if "HEALED" in query_upper:
                 return healed_data
             if "RUNS" in query_upper:
@@ -68,9 +58,7 @@ class DataConnector:
             raise RuntimeError(f"Production query failed: {e}") from e
 
     def _fallback_jsonl_query(self, sql_query):
-        """
-        Fallback query engine that parses local JSONL files for demo reliability.
-        """
+        """Parse local JSONL files (demo mode reliability net)."""
         query_upper = sql_query.upper()
 
         try:
@@ -125,13 +113,13 @@ class DataConnector:
 
         if "SENTRY_ISSUES" in query_upper:
             return sentry_data
-        elif "GITHUB_COMMITS" in query_upper:
+        if "GITHUB_COMMITS" in query_upper:
             return github_data
-        elif "SLACK_HISTORY" in query_upper:
+        if "SLACK_HISTORY" in query_upper:
             return slack_data
-        elif "RUNS" in query_upper:
+        if "RUNS" in query_upper:
             return runs_data
-        elif "HEALED_FILES" in query_upper or "HEALED" in query_upper:
+        if "HEALED_FILES" in query_upper or "HEALED" in query_upper:
             return healed_data
 
         return []
@@ -148,7 +136,6 @@ class DataConnector:
         return data
 
     def write_jsonl(self, filename, record, append=True):
-        """Helper to write to custom Coral logs."""
         filepath = os.path.join(self.demo_data_dir, filename)
         mode = "a" if append else "w"
         with open(filepath, mode) as f:
@@ -157,7 +144,6 @@ class DataConnector:
 
     def post_slack_alert(self, text: str) -> bool:
         if is_production():
-            import os
             from integrations import slack_client
             channel = os.environ.get("SLACK_INCIDENT_CHANNEL", "incident-alerts")
             try:
@@ -166,17 +152,15 @@ class DataConnector:
             except Exception as e:
                 logger.warning("Slack post failed: %s", e)
                 return False
-        else:
-            self.write_jsonl("slack_history.jsonl", {
-                "channel": "#incident-alerts",
-                "username": "cortex-sre-autopilot",
-                "text": text,
-                "timestamp": __import__("datetime").datetime.now().isoformat(),
-            })
-            return True
+        self.write_jsonl("slack_history.jsonl", {
+            "channel": "#incident-alerts",
+            "username": "cortex-sre-autopilot",
+            "text": text,
+            "timestamp": __import__("datetime").datetime.now().isoformat(),
+        })
+        return True
 
     def resolve_sentry(self, issue_id: str) -> bool:
-        """Resolve issue in Sentry (production API) or local JSONL (demo)."""
         if is_production():
             from integrations import sentry_client
             from integrations import production_data

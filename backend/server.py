@@ -30,6 +30,17 @@ def read_root():
         return FileResponse(index_path)
     raise HTTPException(status_code=404, detail="Frontend index.html not found.")
 
+@app.get("/api/coral/status")
+def coral_status():
+    """Reports whether Coral CLI is available (for judges / operators)."""
+    from integrations.coral_runner import coral_available
+    return {
+        "coral_cli": coral_available(),
+        "coral_use_cli": os.getenv("CORAL_USE_CLI", "true"),
+        "mode": os.getenv("CORTEX_ENV", "demo"),
+    }
+
+
 @app.get("/api/status")
 def get_status():
     """Returns the current state of Sentry, GitHub, Slack, and Healer runs."""

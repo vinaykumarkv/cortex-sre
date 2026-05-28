@@ -133,8 +133,8 @@
                     <div class="report-alert-card disabled-opacity" id="pr-card">
                         <div class="report-icon">🟢</div>
                         <div class="report-info">
-                            <h4>PR #104 Open & Verified</h4>
-                            <p>Self-healed branch merged. Pytest runs green.</p>
+                            <h4 id="pr-title">PR — Open after Autopilot</h4>
+                            <p id="pr-desc">Self-healed branch with passing pytest.</p>
                         </div>
                     </div>
                 </div>
@@ -274,9 +274,17 @@
 
                     if (result.incident_found === false) {
                         appendConsoleLog('SYSTEM', 'No active incidents — workspace is already healthy.');
-                    } else if (result.success) {
+                    } else                     if (result.success) {
                         appendConsoleLog('SUCCESS', 'Autopilot run complete. Workspace healed successfully!');
-                        document.getElementById('pr-card').className = 'report-alert-card success-card';
+                        const prCard = document.getElementById('pr-card');
+                        prCard.className = 'report-alert-card success-card';
+                        if (result.pr_number && result.pr_url) {
+                            document.getElementById('pr-title').innerHTML =
+                                `PR #<a href="${result.pr_url}" target="_blank" rel="noopener">${result.pr_number}</a> Open`;
+                            document.getElementById('pr-desc').innerText = result.pr_url;
+                        } else if (result.pr_number) {
+                            document.getElementById('pr-title').innerText = `PR #${result.pr_number} Open`;
+                        }
                     } else {
                         appendConsoleLog('ERROR', 'Autopilot self-healing failed. Human engineer intervention requested.');
                     }
