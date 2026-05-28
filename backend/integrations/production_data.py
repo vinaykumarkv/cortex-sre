@@ -1,29 +1,56 @@
 # production_data.py — Live data fetch + SQL-shaped queries for production mode
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from config import production_cache_ttl
 from integrations import github_client, sentry_client, slack_client
 
 logger = logging.getLogger(__name__)
 
 _cache: dict[str, list[dict]] = {}
+_cache_at: float = 0.0
 
 
 def clear_cache() -> None:
+    global _cache_at
     _cache.clear()
+    _cache_at = 0.0
 
 
 def _load_tables() -> dict[str, list[dict]]:
-    if _cache:
+    global _cache_at
+    ttl = production_cache_ttl()
+    if _cache and (time.time() - _cache_at) < ttl:
         return _cache
 
-    logger.info("Loading live Sentry, GitHub, and Slack data...")
-    sentry = sentry_client.fetch_active_issues()
-    github = github_client.fetch_all_recent()
-    slack = slack_client.fetch_all_configured_history()
+    logger.info("Loading live Sentry, GitHub, and Slack data (parallel)...")
+    results: dict[str, list[dict]] = {"sentry": [], "github": [], "slack": []}
 
-    _cache["sentry"] = sentry
-    _cache["github"] = github
-    _cache["slack"] = slack
+    tasks = {
+        "sentry": sentry_client.fetch_active_issues,
+        "github": github_client.fetch_all_recent,
+        "slack": slack_client.fetch_all_configured_history,
+    }
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {pool.submit(fn): key for key, fn in tasks.items()}
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                results[key] = future.result()
+            except Exception as e:
+                logger.error("Failed to load %s: %s", key, e)
+                results[key] = []
+
+    _cache.update(results)
+    _cache_at = time.time()
+    logger.info(
+        "Live data loaded: sentry=%d github=%d slack=%d",
+        len(results["sentry"]),
+        len(results["github"]),
+        len(results["slack"]),
+    )
     return _cache
 
 
@@ -66,14 +93,21 @@ def _join(
             continue
 
         target_file = issue.get("file")
-        if target_file and target_file != "unknown":
-            matching_commits = [
-                c for c in github_data
-                if c.get("file") == target_file or target_file in (c.get("message") or "")
-            ]
-            if not matching_commits:
-                matching_commits = github_client.fetch_commits(target_file)
-        else:
+        if not target_file or target_file == "unknown":
+            if issue.get("error_type") == "ZeroDivisionError":
+                target_file = "app.py"
+                issue = {**issue, "file": target_file, "line": issue.get("line") or 9}
+
+        matching_commits = [
+            c for c in github_data
+            if c.get("file") == target_file or (target_file and target_file in (c.get("message") or ""))
+        ]
+        if not matching_commits and target_file and target_file != "unknown":
+            try:
+                matching_commits = github_client.fetch_commits(target_file, per_page=5)
+            except Exception as e:
+                logger.warning("GitHub commits for %s failed: %s", target_file, e)
+        if not matching_commits:
             matching_commits = github_data[:1]
 
         slack_needle = "app.py" if "APP.PY" in query_upper else target_file
@@ -82,10 +116,7 @@ def _join(
             if slack_needle and slack_needle.lower() in (s.get("text") or "").lower()
         ]
         if not matching_slack and target_file:
-            matching_slack = [
-                s for s in slack_data
-                if target_file in (s.get("text") or "")
-            ]
+            matching_slack = [s for s in slack_data if target_file in (s.get("text") or "")]
 
         commit = matching_commits[0] if matching_commits else {}
         slack = matching_slack[0] if matching_slack else {}

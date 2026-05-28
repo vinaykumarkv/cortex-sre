@@ -23,3 +23,18 @@ def ollama_model() -> str:
 
 def ollama_base_url() -> str:
     return os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+
+
+def http_timeout() -> float:
+    """Read timeout in seconds for external APIs (Sentry, GitHub, Slack)."""
+    return float(os.getenv("HTTP_TIMEOUT_SEC", "60"))
+
+
+def production_cache_ttl() -> int:
+    """Seconds to cache live Sentry/GitHub/Slack data (status polling)."""
+    return int(os.getenv("PRODUCTION_CACHE_TTL_SEC", "45"))
+
+
+def sentry_fetch_events() -> bool:
+    """Extra per-issue Sentry API call for stack frames (slow)."""
+    return os.getenv("SENTRY_FETCH_EVENTS", "false").lower() in ("1", "true", "yes")

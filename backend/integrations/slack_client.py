@@ -2,7 +2,7 @@
 import logging
 import os
 
-import httpx
+from integrations.http_util import make_client
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def resolve_channel_id(channel: str) -> str:
         return channel
 
     name = channel.lstrip("#").lower()
-    with httpx.Client(timeout=30) as client:
+    with make_client() as client:
         cursor = None
         while True:
             params = {"types": "public_channel,private_channel", "limit": 200}
@@ -50,9 +50,9 @@ def resolve_channel_id(channel: str) -> str:
     raise ValueError(f"Slack channel not found: {channel}")
 
 
-def fetch_channel_history(channel: str, limit: int = 50) -> list[dict]:
+def fetch_channel_history(channel: str, limit: int = 20) -> list[dict]:
     channel_id = resolve_channel_id(channel)
-    with httpx.Client(timeout=30) as client:
+    with make_client() as client:
         resp = client.get(
             f"{SLACK_API}/conversations.history",
             headers=_headers(),
@@ -67,30 +67,42 @@ def fetch_channel_history(channel: str, limit: int = 50) -> list[dict]:
 
 
 def fetch_all_configured_history() -> list[dict]:
-    """Merge history from incident + dev channels."""
+    """Merge history from incident + dev channels (parallel)."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     channels = []
     for key in ("SLACK_INCIDENT_CHANNEL", "SLACK_DEV_CHANNEL"):
         val = os.environ.get(key, "").strip()
         if val:
             channels.append(val)
 
+    if not channels:
+        return []
+
     seen = set()
     combined: list[dict] = []
-    for ch in channels:
-        try:
-            for msg in fetch_channel_history(ch):
-                uid = (msg.get("channel"), msg.get("timestamp"), msg.get("text"))
-                if uid not in seen:
-                    seen.add(uid)
-                    combined.append(msg)
-        except Exception as e:
-            logger.warning("Slack history for %s failed: %s", ch, e)
+
+    def _load(ch: str) -> list[dict]:
+        return fetch_channel_history(ch)
+
+    with ThreadPoolExecutor(max_workers=len(channels)) as pool:
+        futures = {pool.submit(_load, ch): ch for ch in channels}
+        for future in as_completed(futures):
+            ch = futures[future]
+            try:
+                for msg in future.result():
+                    uid = (msg.get("channel"), msg.get("timestamp"), msg.get("text"))
+                    if uid not in seen:
+                        seen.add(uid)
+                        combined.append(msg)
+            except Exception as e:
+                logger.warning("Slack history for %s failed: %s", ch, e)
     return combined
 
 
 def post_message(channel: str, text: str) -> None:
     channel_id = resolve_channel_id(channel)
-    with httpx.Client(timeout=30) as client:
+    with make_client() as client:
         resp = client.post(
             f"{SLACK_API}/chat.postMessage",
             headers={**_headers(), "Content-Type": "application/json"},

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from config import is_production
 from connector import DataConnector
 from healer import CodeHealer
 
@@ -39,6 +40,9 @@ class CortexSREAgent:
         Returns a detailed summary of steps and results for UI render.
         """
         self.thought_stream = []
+        if is_production():
+            from integrations import production_data
+            production_data.clear_cache()
         self.log_thought("SENSING", "CortexSRE Autopilot active. Querying Coral SQL for unresolved production alerts...")
 
         # Step 1: Use Coral to join Sentry + GitHub + Slack
@@ -103,12 +107,19 @@ class CortexSREAgent:
             f"(ZeroDivisionError) in app.py has been healed. Automated test suite passed successfully. "
             f"Opened Pull Request #{pr_number} with code patches. Live Dashboard: http://localhost:8000"
         )
-        self.connector.post_slack_alert(slack_alert)
-        self.log_thought("ACTION", "Sent resolution report to Slack incident channel.")
+        if self.connector.post_slack_alert(slack_alert):
+            self.log_thought("ACTION", "Sent resolution report to Slack incident channel.")
+        else:
+            self.log_thought("ACTION", "Slack post skipped (check bot token, channel ID, and chat:write scope).")
 
-        # Update Sentry to resolved (API in production, JSONL in demo)
-        self.connector.resolve_sentry(incident["issue_id"])
-        self.log_thought("ACTION", f"Sentry Incident {incident['issue_id']} status updated to 'resolved'.")
+        if self.connector.resolve_sentry(incident["issue_id"]):
+            self.log_thought("ACTION", f"Sentry incident {incident['issue_id']} marked resolved.")
+        else:
+            self.log_thought(
+                "ACTION",
+                f"Sentry resolve skipped for {incident['issue_id']} "
+                "(403 — add project:write scope to SENTRY auth token).",
+            )
 
         # Step 4: Record this run in the custom Coral cortex_system log!
         run_id = f"RUN-{(int(datetime.now().timestamp()) % 1000):03d}"

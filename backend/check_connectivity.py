@@ -12,7 +12,9 @@ from config import get_mode, use_ollama, ollama_model
 def main():
     print("=== CortexSRE connectivity check ===\n")
     print(f"CORTEX_ENV -> {get_mode()}")
-    print(f"USE_OLLAMA -> {use_ollama()} | model: {ollama_model()}\n")
+    print(f"USE_OLLAMA -> {use_ollama()} | model: {ollama_model()}")
+    print(f"SLACK_INCIDENT_CHANNEL -> {os.environ.get('SLACK_INCIDENT_CHANNEL', '(empty)')!r}")
+    print(f"SLACK_DEV_CHANNEL -> {os.environ.get('SLACK_DEV_CHANNEL', '(empty)')!r}\n")
 
     # Ollama
     try:

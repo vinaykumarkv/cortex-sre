@@ -2,7 +2,7 @@
 import logging
 import os
 
-import httpx
+from integrations.http_util import make_client
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def fetch_commits(file_path: str | None = None, per_page: int = 10) -> list[dict
     if file_path and file_path != "unknown":
         params["path"] = file_path
 
-    with httpx.Client(timeout=30) as client:
+    with make_client() as client:
         resp = client.get(url, headers=_headers(), params=params)
         if resp.status_code in (404, 409):
             # 404 = repo not found; 409 = empty repo with no commits yet

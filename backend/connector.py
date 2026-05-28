@@ -62,7 +62,6 @@ class DataConnector:
 
         try:
             from integrations import production_data
-            production_data.clear_cache()
             return production_data.run_query(sql_query, runs_data, healed_data)
         except Exception as e:
             logger.error("Production data fetch failed: %s", e)
@@ -156,12 +155,17 @@ class DataConnector:
             f.write(json.dumps(record) + "\n")
         logger.info(f"Successfully recorded data log to {filename}")
 
-    def post_slack_alert(self, text: str) -> None:
+    def post_slack_alert(self, text: str) -> bool:
         if is_production():
             import os
             from integrations import slack_client
-            channel = os.environ.get("SLACK_INCIDENT_CHANNEL", "#incident-alerts")
-            slack_client.post_message(channel, text)
+            channel = os.environ.get("SLACK_INCIDENT_CHANNEL", "incident-alerts")
+            try:
+                slack_client.post_message(channel, text)
+                return True
+            except Exception as e:
+                logger.warning("Slack post failed: %s", e)
+                return False
         else:
             self.write_jsonl("slack_history.jsonl", {
                 "channel": "#incident-alerts",
@@ -169,15 +173,19 @@ class DataConnector:
                 "text": text,
                 "timestamp": __import__("datetime").datetime.now().isoformat(),
             })
+            return True
 
-    def resolve_sentry(self, issue_id: str) -> None:
+    def resolve_sentry(self, issue_id: str) -> bool:
+        """Resolve issue in Sentry (production API) or local JSONL (demo)."""
         if is_production():
             from integrations import sentry_client
-            sentry_client.resolve_issue(issue_id)
             from integrations import production_data
-            production_data.clear_cache()
-        else:
-            self._resolve_sentry_jsonl(issue_id)
+            ok = sentry_client.resolve_issue(issue_id)
+            if ok:
+                production_data.clear_cache()
+            return ok
+        self._resolve_sentry_jsonl(issue_id)
+        return True
 
     def _resolve_sentry_jsonl(self, issue_id: str) -> None:
         sentry_file = os.path.join(self.demo_data_dir, "sentry_issues.jsonl")
