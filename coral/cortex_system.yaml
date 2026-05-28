@@ -1,0 +1,43 @@
+name: cortex_system
+version: 0.1.0
+dsl_version: 3
+backend: file
+test_queries:
+  - SELECT * FROM cortex_system.runs LIMIT 1
+  - SELECT * FROM cortex_system.healed_files LIMIT 1
+tables:
+  - name: runs
+    description: Agent SRE automation loop runs
+    format: jsonl
+    source:
+      location: file:///C:/Users/vinay/.gemini/antigravity/scratch/cortex-sre/demo_data/
+      glob: "cortex_runs.jsonl"
+    columns:
+      - name: run_id
+        type: Utf8
+      - name: incident_id
+        type: Utf8
+      - name: status
+        type: Utf8
+      - name: duration_sec
+        type: Int64
+      - name: timestamp
+        type: Utf8
+
+  - name: healed_files
+    description: Repaired codebase files and metrics
+    format: jsonl
+    source:
+      location: file:///C:/Users/vinay/.gemini/antigravity/scratch/cortex-sre/demo_data/
+      glob: "cortex_healed.jsonl"
+    columns:
+      - name: healed_id
+        type: Utf8
+      - name: file
+        type: Utf8
+      - name: lines_changed
+        type: Int64
+      - name: test_status
+        type: Utf8
+      - name: timestamp
+        type: Utf8

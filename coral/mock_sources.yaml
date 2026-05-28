@@ -1,0 +1,64 @@
+name: mock_obs
+version: 0.1.0
+dsl_version: 3
+backend: file
+test_queries:
+  - SELECT * FROM mock_obs.sentry_issues LIMIT 1
+  - SELECT * FROM mock_obs.github_commits LIMIT 1
+  - SELECT * FROM mock_obs.slack_history LIMIT 1
+tables:
+  - name: sentry_issues
+    description: Mock Sentry issue events
+    format: jsonl
+    source:
+      location: file:///C:/Users/vinay/.gemini/antigravity/scratch/cortex-sre/demo_data/
+      glob: "sentry_issues.jsonl"
+    columns:
+      - name: issue_id
+        type: Utf8
+      - name: error_type
+        type: Utf8
+      - name: message
+        type: Utf8
+      - name: file
+        type: Utf8
+      - name: line
+        type: Int64
+      - name: status
+        type: Utf8
+      - name: timestamp
+        type: Utf8
+
+  - name: github_commits
+    description: Mock GitHub commit logs
+    format: jsonl
+    source:
+      location: file:///C:/Users/vinay/.gemini/antigravity/scratch/cortex-sre/demo_data/
+      glob: "github_commits.jsonl"
+    columns:
+      - name: commit_sha
+        type: Utf8
+      - name: author
+        type: Utf8
+      - name: message
+        type: Utf8
+      - name: file
+        type: Utf8
+      - name: timestamp
+        type: Utf8
+
+  - name: slack_history
+    description: Mock Slack message history
+    format: jsonl
+    source:
+      location: file:///C:/Users/vinay/.gemini/antigravity/scratch/cortex-sre/demo_data/
+      glob: "slack_history.jsonl"
+    columns:
+      - name: channel
+        type: Utf8
+      - name: username
+        type: Utf8
+      - name: text
+        type: Utf8
+      - name: timestamp
+        type: Utf8

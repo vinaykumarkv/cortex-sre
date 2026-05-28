@@ -1,0 +1,4 @@
+{"run_id": "RUN-001", "incident_id": "SEN-404", "status": "completed", "duration_sec": 12, "timestamp": "2026-05-28T21:14:00Z"}
+{"run_id": "RUN-166", "incident_id": "SEN-404", "status": "completed", "duration_sec": 1, "timestamp": "2026-05-28T21:46:06.851982"}
+{"run_id": "RUN-239", "incident_id": "SEN-404", "status": "completed", "duration_sec": 4, "timestamp": "2026-05-28T21:47:19.636045"}
+{"run_id": "RUN-307", "incident_id": "SEN-404", "status": "completed", "duration_sec": 3, "timestamp": "2026-05-28T21:48:27.418166"}

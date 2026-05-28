@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.system_generated/
+*~
+*.log
+.env
+.env.local
+workspace_checkout/
+.venv/
