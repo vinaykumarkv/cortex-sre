@@ -21,10 +21,10 @@ RUN apt-get update && apt-get install -y curl bash && rm -rf /var/lib/apt/lists/
 # Copy all project directories and files into the container
 COPY . /code
 
-# Pull the Ollama model so it is available at runtime
+# Install the Ollama CLI at build time, but do not fail if the model pull is deferred
 RUN if [ "${USE_OLLAMA}" = "true" ]; then \
       curl -fsSL https://ollama.com/install.sh | bash && \
-      ollama pull llama3.2; \
+      true; \
     fi
 
 # Make the startup script executable
