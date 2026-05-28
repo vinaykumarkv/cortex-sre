@@ -1,0 +1,37 @@
+# Ignore Python virtual environment and local editor/project state
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Git metadata
+.git
+.gitignore
+
+# Local editor and OS files
+.vscode
+.idea
+*.swp
+*.swo
+.DS_Store
+
+# Test artifacts
+.pytest_cache
+*.log
+
+# Hugging Face cache / local runtime artifacts
+*.sqlite
+
+# Optional local environment files
+.env
+.env.*
+
+# Node/npm artifacts if any
+node_modules
+npm-debug.log
+
+# Build outputs
+dist
+build
