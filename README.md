@@ -144,6 +144,16 @@ cd backend
 python server.py
 ```
 
+### Deploying to Hugging Face Spaces
+
+This repo includes a `Dockerfile` for Spaces. It can install Ollama, pull `llama3.2`, and start both the Ollama service and the FastAPI backend together.
+
+- `USE_OLLAMA=true`
+- `OLLAMA_BASE_URL=http://127.0.0.1:11434`
+- `uvicorn server:app --host 0.0.0.0 --port 7860`
+
+Use the Space secrets page to set any sensitive production env vars instead of committing `.env`.
+
 **Health check:**
 
 ```powershell
