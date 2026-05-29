@@ -4,7 +4,8 @@
 
 [![Coral](https://img.shields.io/badge/Coral-SQL%20joins-blue)](coral/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688)](https://fastapi.tiangolo.com/)
-[![Ollama](https://img.shields.io/badge/Ollama-llama3.2-000)](https://ollama.com/)
+[![Ollama](https://img.shields.io/badge/Ollama-llama3.2-000)](https://ollama.com/) OR 
+[![Gemini](https://img.shields.io/badge/Gemini-Gemma31B-000)](https://aistudio.google.com/)
 
 ---
 
